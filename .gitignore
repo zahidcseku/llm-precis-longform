@@ -1,0 +1,4 @@
+__pycache__/
+daily_overviews/
+.env
+tmp/
