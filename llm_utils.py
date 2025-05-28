@@ -3,6 +3,14 @@ from dotenv import load_dotenv
 import os
 import time
 import json
+from google import genai
+from pydantic import BaseModel
+
+
+class LLMResponse(BaseModel):
+    precis: str
+    long_form_text: str
+
 
 # Load environment variables from .env file
 load_dotenv()
@@ -15,6 +23,9 @@ load_dotenv()
 CLIENT = OpenAI(
     base_url="https://api.groq.com/openai/v1", api_key=os.environ.get("GROQ_API_KEY")
 )
+
+
+gclient = genai.Client(api_key=os.getenv("GOOGLE_GENAI_API_KEY"))
 
 
 def apply_llm(hourly_forecast_data, var_definitions, output_dir, output_filename):
@@ -113,3 +124,25 @@ def apply_llm(hourly_forecast_data, var_definitions, output_dir, output_filename
             print(f"Input Tokens: {input_tokens}")
             print(f"Output Tokens: {output_tokens}")
             print(f"Latency: {latency_seconds:.4f} seconds")
+
+        start_time = time.time()
+        # Apply gemini model
+        response = gclient.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=PROMPT,
+            config={
+                "response_mime_type": "application/json",
+                "response_schema": LLMResponse,
+            },
+        )
+
+        # Write model results to the output file
+        outfile.write("### Model: gemini-2.0-flash\n")
+        outfile.write(f"**Response:**\n{response.text}\n\n")
+        outfile.write(
+            f"**Input Tokens:** {response.usage_metadata.prompt_token_count}\n"
+        )
+        outfile.write(
+            f"**Output Tokens:** {response.usage_metadata.candidates_token_count}\n"
+        )
+        outfile.write(f"**Latency:** {time.time() - start_time:.4f} seconds\n\n---\n\n")
