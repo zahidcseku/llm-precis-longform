@@ -5,6 +5,7 @@ import time
 import json
 from google import genai
 from pydantic import BaseModel
+from groq import Groq
 
 
 class LLMResponse(BaseModel):
@@ -24,6 +25,7 @@ CLIENT = OpenAI(
     base_url="https://api.groq.com/openai/v1", api_key=os.environ.get("GROQ_API_KEY")
 )
 
+CLIENT = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 gclient = genai.Client(api_key=os.getenv("GOOGLE_GENAI_API_KEY"))
 
@@ -42,14 +44,21 @@ def apply_llm(hourly_forecast_data, var_definitions, output_dir, output_filename
     # create prompts
     # --- Define the static part of the prompt and combine with file data ---
     PROMPT = f"""You are a weather expert. Based on the following hourly 
-    forecast data, please provide two summaries:
-        1. A very concise 5-word summary.
-        2. A detailed 20-word summary.
+    forecast data, please provide two summaries.
+    Your response MUST be a single, valid JSON object with two keys: "precis" and "long_form_text".
+    - "precis": A very concise 5-word summary.
+    - "long_form_text": A detailed 20-word summary.
+    
+    Example of the JSON structure:
+    {{
+      "precis": "Concise summary here.",
+      "long_form_text": "Detailed summary here."
+    }}
+    
+    Do NOT include any other text, explanations, or markdown formatting before or after the JSON object.
+    
     Mention temperature trends, precipitation chances, cloud conditions, and any significant weather events. 
-    Use natural, easy-to-understand language suitable for a general audience.
-            
-    IMPORTANT: Your response must only contain the two requested summaries. Do not include any reasoning steps, XML-like tags (e.g., <think></think>), 
-    or any other meta-commentary.
+    Use natural, easy-to-understand language suitable for a general audience.    
 
     The definitions of the variables in the data are as follows:
     {var_definitions}   
@@ -82,6 +91,7 @@ def apply_llm(hourly_forecast_data, var_definitions, output_dir, output_filename
 
             try:
                 completion = CLIENT.chat.completions.create(
+                    # completion = CLIENT.beta.chat.completions.parse(
                     extra_body={},
                     model=model,  # Simplified
                     messages=[
@@ -90,8 +100,20 @@ def apply_llm(hourly_forecast_data, var_definitions, output_dir, output_filename
                             "content": PROMPT,
                         }
                     ],
+                    # response_format=LLMResponse,
+                    response_format={"type": "json_object"},
                 )
-                response_content = str(completion.choices[0].message.content)
+                response_content = completion.choices[0].message.content
+
+                # Try to parse as JSON
+                try:
+                    output_data = LLMResponse.model_validate_json(response_content)
+                    parsed_output_str = output_data.model_dump_json(indent=2)
+                    print(f"\nModel {model}: Successfully parsed and validated JSON.")
+                    print("\nSuccessfully parsed as JSON!")
+                except json.JSONDecodeError:
+                    print("\nFailed to parse as JSON. Response is not valid JSON.")
+
                 if completion.usage:
                     input_tokens = completion.usage.prompt_tokens
                     output_tokens = completion.usage.completion_tokens
@@ -114,7 +136,8 @@ def apply_llm(hourly_forecast_data, var_definitions, output_dir, output_filename
 
             # Write model results to the output file
             outfile.write(f"### Model: {model}\n")
-            outfile.write(f"**Response:**\n{response_content}\n\n")
+            # outfile.write(f"**Response:**\n{output_data}\n\n")
+            outfile.write(f"**Response:**\n```json\n{parsed_output_str}\n```\n\n")
             outfile.write(f"**Input Tokens:** {input_tokens}\n")
             outfile.write(f"**Output Tokens:** {output_tokens}\n")
             outfile.write(f"**Latency:** {latency_seconds:.4f} seconds\n\n---\n\n")
