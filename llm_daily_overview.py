@@ -12,9 +12,11 @@ This script does the followings:
 
 import dotenv
 from var_dictionary import get_var_definitions
-from utils import get_daily_forecasts
+from utils import get_daily_forecasts, convert_to_tabular
 from llm_utils import apply_llm
 import json
+from bom_scrapper import scrape_forecast_texts
+import pandas as pd
 
 dotenv.load_dotenv()
 
@@ -28,6 +30,16 @@ LOCS = {
     "sydney": ("-33.86", "151.20"),
     "canberra": ("-35.31", "149.20"),
 }  # Example: Melbourne, SYD, CAN  Sydney Lat: -33.86Lon: 151.20 and Canberra Lat: -35.31Lon: 149.20
+CITY_TO_STATE = {
+    "melbourne": "vic",
+    "sydney": "nsw",
+    "canberra": "act",
+    "brisbane": "qld",
+    "perth": "wa",
+    "adelaide": "sa",
+    "hobart": "tas",
+    "darwin": "nt",
+}  #
 
 VARS = [
     "cape_srf",
@@ -58,13 +70,27 @@ VARS_SET = set(VARS)  # Use a set for efficient O(1) average time complexity loo
 
 def main():
     for location_label, loc in LOCS.items():
+        # get the bom daily forecasts for the location
+        print(f"Processing daily forecasts for {location_label}...")
+        # (state, city)
+        bom_forecasts = scrape_forecast_texts(
+            state=CITY_TO_STATE[location_label], city=location_label
+        )
+
         # get the responses.
-        data = get_daily_forecasts(loc, VARS)
+        data = get_daily_forecasts(loc, VARS, jw_model="access-g.13km")  # ai_enhanced
 
         """
         data is a dictionary with the following structure:
         "date": { "hour_minute": {var: value, ...}, ... }, ...}
         """
+        if not data:
+            print(f"No data found for {location_label}. Skipping...")
+            continue
+        # Convert the data to tabular format
+        tabdata = convert_to_tabular(data)
+        # print(pd.DataFrame(tabdata))
+        # exit()
 
         # call the LLM with daily data
         for date, hourly_data in data.items():
@@ -81,6 +107,7 @@ def main():
                 output_dir="daily_overviews",
                 output_filename=output_filename,
             )
+            exit()
         # save response to a directory
 
 

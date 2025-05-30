@@ -64,6 +64,17 @@ def scrape_forecast_texts(state, city):
             daily_forecasts.append(day_forecast)
         forecast_data["daily_forecasts"] = daily_forecasts
 
+        # replace "Forecast for the rest of " by date and day from "issued_at"
+        date_to_update = forecast_data["issued_at"].split("ESTon")[1]
+        date_to_update = date_to_update[:-5]
+
+        # find the key in the forecast_data dictionary that contains "Forecast for the rest of "
+        for dic in forecast_data.get("daily_forecasts", []):
+            if "Forecast for the rest of" in dic.get("day", ""):
+                # change key
+                dic["day"] = date_to_update.strip()
+                break
+
         return forecast_data
     except requests.RequestException as e:
         print(f"An error occurred: {e}")
@@ -73,7 +84,7 @@ def scrape_forecast_texts(state, city):
 if __name__ == "__main__":
     import json
 
-    state = "vic"  # State code for Victoria
-    city = "melbourne"  # City name for Melbourne
+    state = "qld"  # State code for Victoria
+    city = "brisbane"  # City name for Melbourne
     melbourne_forecasts = scrape_forecast_texts(state=state, city=city)
     print(json.dumps(melbourne_forecasts, indent=2, ensure_ascii=False))

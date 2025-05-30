@@ -9,7 +9,7 @@ import pytz
 dotenv.load_dotenv()
 
 
-def get_daily_forecasts(location, vars_list):
+def get_daily_forecasts(location, vars_list, jw_model="access-g.13km"):
     """
     Fetch daily forecasts from the JW API for given locations and variables.
 
@@ -24,7 +24,7 @@ def get_daily_forecasts(location, vars_list):
         "https://api.janesweather.com/v2/forecast",
         headers={"X-Api-Key": os.getenv("JW_API_KEY")},
         params={
-            "model": "ai_enhanced",
+            "model": jw_model,  # ai_enhanced
             "lat": location[0],
             "lon": location[1],
             "show_contributors": "true",
@@ -135,6 +135,47 @@ def split_json_by_date(input_json, vars):
     )
 
     return hourly_by_date
+
+
+def convert_to_tabular(forecast_data_by_date):
+    """
+    Converts the nested forecast data dictionary into a flat tabular format (list of dictionaries).
+
+    Args:
+        forecast_data_by_date (dict): A dictionary where keys are dates (YYYY-MM-DD strings)
+                                     and values are dictionaries. Each inner dictionary
+                                     has time (HH:MM strings) as keys and weather variable
+                                     dictionaries as values (e.g., {'temp': 20, 'precip': 0}).
+                                     Example:
+                                     {
+                                         "2023-01-01": {
+                                             "00:00": {"temp": 10, "precip": 0},
+                                             "01:00": {"temp": 11, "precip": 0.1}
+                                         },
+                                         "2023-01-02": { ... }
+                                     }
+
+    Returns:
+        list: A list of dictionaries, where each dictionary represents a single hourly forecast
+              record. Each dictionary includes 'date', 'time', and all weather variables.
+              Returns an empty list if input is None or empty.
+              Example:
+              [
+                  {'date': '2023-01-01', 'time': '00:00', 'temp': 10, 'precip': 0},
+                  {'date': '2023-01-01', 'time': '01:00', 'temp': 11, 'precip': 0.1},
+                  ...
+              ]
+    """
+    tabular_data = []
+    if not forecast_data_by_date:  # Handles None or empty dict/defaultdict
+        return tabular_data
+
+    for date_str, hourly_entries in forecast_data_by_date.items():
+        for time_str, variables in hourly_entries.items():
+            record = {"date": date_str, "time": time_str}
+            record.update(variables)
+            tabular_data.append(record)
+    return tabular_data
 
 
 if __name__ == "__main__":
