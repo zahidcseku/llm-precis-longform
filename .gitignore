@@ -3,3 +3,4 @@ daily_overviews/
 .env
 tmp/
 .DS_Store/
+*.xlsx
