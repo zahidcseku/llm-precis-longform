@@ -173,6 +173,7 @@ def main(comments):
         for forecast_texts in bom_forecasts["daily_forecasts"]:
             current_day = f"{forecast_texts['day']} {datetime.now().year}"
             # %A for full weekday name, %d for day of the month, %B for full month name
+
             date_object = datetime.strptime(current_day, "%A %d %B %Y")
 
             # make the forecast data key
@@ -294,5 +295,5 @@ def main(comments):
 
 
 if __name__ == "__main__":
-    comments = "basic promting for daily overview of weather forecasts"
+    comments = "prompt including Jane's comments no BoM data yet"
     main(comments)

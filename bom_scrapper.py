@@ -65,7 +65,17 @@ def scrape_forecast_texts(state, city):
         forecast_data["daily_forecasts"] = daily_forecasts
 
         # replace "Forecast for the rest of " by date and day from "issued_at"
-        date_to_update = forecast_data["issued_at"].split("on")[1]
+        # check if it has ESTon
+        if "ESTon" in forecast_data["issued_at"]:
+            split_key = "ESTon"
+        elif "on" in forecast_data["issued_at"]:
+            split_key = "on"
+        else:
+            print("No split_key found in issued_at")
+            print(forecast_data["issued_at"])
+            exit()
+
+        date_to_update = forecast_data["issued_at"].split(split_key)[1]
         date_to_update = date_to_update[:-5]
 
         # find the key in the forecast_data dictionary that contains "Forecast for the rest of "

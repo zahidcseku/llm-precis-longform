@@ -43,6 +43,14 @@ def apply_llm(hourly_forecast_data, var_definitions):
     Your response MUST be a single, valid JSON object with two keys: "precis" and "long_form_text".
     - "precis": A very concise 5-word summary.
     - "long_form_text": A detailed 20-word summary.
+
+    The long_form_text made up of the following structure: Cloud / Precipitation / Winds. 
+    - Cloud: Describe the cloud conditions using the wording - sunny, mostly sunny, 
+             partly cloudy, mostly cloudy, cloudy and include any transitions across 
+             windows of the day (ie cloudy in the morning, partly cloudy in the afternoon). 
+    - Precip: only use per weather words (showers, rain, thunderstorms, drizzle etc).
+    - Wind: describe the day using direction and ranges from the weather words wind table, 
+            in km/h - ie moderate is 20 to 29 km/h, including changes across windows of the day
     
     Example of the JSON structure:
     {{
