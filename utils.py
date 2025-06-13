@@ -1,10 +1,11 @@
 import os
 import requests
 import dotenv
-import json
 from collections import defaultdict
 from datetime import datetime
 import pytz
+import pandas as pd
+from typing import Dict, Any
 
 dotenv.load_dotenv()
 
@@ -176,6 +177,46 @@ def convert_to_tabular(forecast_data_by_date):
             record.update(variables)
             tabular_data.append(record)
     return tabular_data
+
+
+def convert_daily_forecasts_to_tabular(
+    weather_data_dict: Dict[str, Dict[str, Any]],
+) -> pd.DataFrame:
+    """
+    Converts a nested dictionary of weather data (keyed by time) into a pandas DataFrame.
+
+    Args:
+      weather_data_dict: A dictionary where keys are time strings (e.g., '09:00')
+                         and values are dictionaries containing weather parameters.
+
+    Returns:
+      A pandas DataFrame representing the weather data in a tabular format,
+      with 'Time' as a column and other weather parameters as additional columns.
+    """
+    # Create a list to hold the data for each row
+    data_list = []
+
+    # Iterate through the input dictionary
+    for time, data in weather_data_dict.items():
+        # Create a dictionary for the current row, starting with the time
+        row_data = {"Time": time}
+        # Add all the weather parameters from the nested dictionary to the row data
+        row_data.update(data)
+        # Append the row dictionary to the list
+        data_list.append(row_data)
+
+    # Create a DataFrame from the list of dictionaries
+    df = pd.DataFrame(data_list)
+
+    # Optional: Sort the DataFrame by the 'Time' column
+    # This assumes the time strings are in a sortable format like HH:MM
+    df = df.sort_values(by="Time").reset_index(drop=True)
+
+    return df.to_markdown(index=False)
+
+
+def get_local_data(floc):
+    pass
 
 
 if __name__ == "__main__":

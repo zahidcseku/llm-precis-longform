@@ -12,13 +12,8 @@ This script does the followings:
 
 import dotenv
 from var_dictionary import get_var_definitions
-from utils import (
-    get_local_data,
-    get_daily_forecasts,
-    convert_to_tabular,
-    convert_daily_forecasts_to_tabular,
-)
-from llm_utils import apply_llm
+from utils import get_daily_forecasts, convert_to_tabular
+from llm_utils_RAG import apply_llm
 import json
 from bom_scrapper import scrape_forecast_texts
 import pandas as pd
@@ -28,6 +23,7 @@ from datetime import datetime
 from transformers import BertTokenizer, BertModel
 from bert_score import BERTScorer
 
+
 dotenv.load_dotenv()
 
 """
@@ -36,14 +32,14 @@ Setup:
 2. VARS=[var, ...]  # List of variable names to extract from the API response
 """
 LOCS = {
-    # "melbourne": ("-37.8136", "144.9631"),
+    "melbourne": ("-37.8136", "144.9631"),
     "sydney": ("-33.86", "151.20"),
     "canberra": ("-35.31", "149.20"),
     "brisbane": ("-27.470125", "153.021072"),
-    ##    "perth": ("-31.95", "115.86"),
-    # "adelaide": ("-34.92", "138.59"),
-    ##    "hobart": ("-42.88", "147.33"),
-    ##    "darwin": ("-12.462827", "130.841782"),
+    "perth": ("-31.95", "115.86"),
+    "adelaide": ("-34.92", "138.59"),
+    "hobart": ("-42.88", "147.33"),
+    "darwin": ("-12.462827", "130.841782"),
 }  # Example: Melbourne, SYD, CAN  Sydney Lat: -33.86Lon: 151.20 and Canberra Lat: -35.31Lon: 149.20
 CITY_TO_STATE = {
     "melbourne": "vic",
@@ -57,43 +53,29 @@ CITY_TO_STATE = {
 }  #
 
 VARS = [
-    "apparent_temp",
+    "cape_srf",
     "chill_stress_idx",
     "dew_pt",
     "frost_prob_cat",
+    "tcc",
+    "apparent_temp",
     "heat_stress_rating",
     "k_idx",
-    "rain",
     "precip",
-    "snow",
+    "precip_conf",
+    "precip_prob",
     "pres_msl",
     "rel_hum",
     "storm_prob_idx",
-    "hcc",
-    "lcc",
-    "mcc",
-    "tcc",
-    "temp_inv_prob_idx",
-    "apparent_temp",
     "temp",
+    "temp_inv_prob_idx",
     "total_totals_idx",
-    "weather_icon",
-    "weather_icon_precis",
+    "uv_idx_clear",
     "wind_dir",
     "wind_dir_compass",
     "wind_kmh",
 ]
-VARS = [
-    "fog_prob_cat",
-    "frost_prob_cat",
-    "gust_kmh",
-    "rain",
-    "snow",
-    "tcc",
-    "weather_icon_precis",
-    "wind_dir",
-    "wind_kmh",
-]
+
 VARS_SET = set(VARS)  # Use a set for efficient O(1) average time complexity lookups
 # Prepare the variable definitions
 var_definitions = get_var_definitions(VARS)
@@ -123,9 +105,7 @@ def main(comments):
         )
 
         # get the responses.
-        data = get_daily_forecasts(loc, VARS, jw_model="ai_enhanced")  # ai_enhanced
-        # floc = f"{location_label}_{loc[0]}_{loc[1]}"
-        # data = get_local_data(floc)
+        data = get_daily_forecasts(loc, VARS, jw_model="access-g.13km")  # ai_enhanced
 
         """
         data is a dictionary with the following structure:
@@ -153,39 +133,39 @@ def main(comments):
         sheet["B1"] = bom_forecasts["issued_at"]
 
         sheet["A3"] = "Date"
-        # sheet["B3"] = "bom_precis"
-        # sheet["C3"] = "llma_precis"
-        # sheet["D3"] = "bert_score"
-        # sheet["C3"] = "deepseek_precis"
-        # sheet["D3"] = "bert_score"
-        # sheet["G3"] = "mistral_precis"
-        # sheet["H3"] = "bert_score"
-        # sheet["I3"] = "gemini_precis"
-        # sheet["J3"] = "bert_score"
-
-        sheet["B3"] = "bom_long_form"
-        # sheet["M3"] = "llma_long_form"
-        # sheet["N3"] = "bert_score"
-        sheet["C3"] = "deepseek_long_form"
+        sheet["B3"] = "bom_precis"
+        sheet["C3"] = "llma_precis"
         sheet["D3"] = "bert_score"
-        # sheet["Q3"] = "mistral_long_form"
-        # sheet["R3"] = "bert_score"
-        # sheet["S3"] = "gemini_long_form"
-        # sheet["T3"] = "bert_score"
+        sheet["E3"] = "deepseek_precis"
+        sheet["F3"] = "bert_score"
+        sheet["G3"] = "mistral_precis"
+        sheet["H3"] = "bert_score"
+        sheet["I3"] = "gemini_precis"
+        sheet["J3"] = "bert_score"
+
+        sheet["L3"] = "bom_long_form"
+        sheet["M3"] = "llma_long_form"
+        sheet["N3"] = "bert_score"
+        sheet["O3"] = "deepseek_long_form"
+        sheet["P3"] = "bert_score"
+        sheet["Q3"] = "mistral_long_form"
+        sheet["R3"] = "bert_score"
+        sheet["S3"] = "gemini_long_form"
+        sheet["T3"] = "bert_score"
 
         # Add headers for the new columns
-        # sheet["V3"] = "llma_input_tokens"
-        sheet["F3"] = "deepseek_input_tokens"
-        # sheet["X3"] = "mistral_input_tokens"
-        # sheet["Y3"] = "gemini_input_tokens"
-        # sheet["Z3"] = "llma_output_tokens"
-        sheet["G3"] = "deepseek_output_tokens"
-        # sheet["AB3"] = "mistral_output_tokens"
-        # sheet["AC3"] = "gemini_output_tokens"
-        # sheet["AD3"] = "llma_latency"
-        sheet["H3"] = "deepseek_latency"
-        # sheet["AF3"] = "mistral_latency"
-        # sheet["AG3"] = "gemini_latency"
+        sheet["V3"] = "llma_input_tokens"
+        sheet["W3"] = "deepseek_input_tokens"
+        sheet["X3"] = "mistral_input_tokens"
+        sheet["Y3"] = "gemini_input_tokens"
+        sheet["Z3"] = "llma_output_tokens"
+        sheet["AA3"] = "deepseek_output_tokens"
+        sheet["AB3"] = "mistral_output_tokens"
+        sheet["AC3"] = "gemini_output_tokens"
+        sheet["AD3"] = "llma_latency"
+        sheet["AE3"] = "deepseek_latency"
+        sheet["AF3"] = "mistral_latency"
+        sheet["AG3"] = "gemini_latency"
 
         # token counts and latency
 
@@ -205,25 +185,26 @@ def main(comments):
                 continue
             # filter the data for the current date
             hourly_data = data[forecast_key]
-            hourly_tabdata = convert_daily_forecasts_to_tabular(hourly_data)
-
             # Apply the LLM to generate summaries
             llm_outputs = apply_llm(
-                hourly_tabdata,
+                hourly_data,
                 var_definitions,
             )
 
+            # BERTScore calculation
+            scorer = BERTScorer(model_type="bert-base-uncased")
+
             # Write the date and precis to the sheet
             sheet[f"A{row}"] = current_day
-            """
+
             sheet[f"B{row}"] = forecast_texts["precis"]
             sheet[f"C{row}"] = llm_outputs["llama-3.1-8b-instant"]["precis"]
             sheet[f"D{row}"] = bert_scorer(
                 llm_outputs["llama-3.1-8b-instant"]["precis"],
                 forecast_texts["precis"],
             )
-            sheet[f"C{row}"] = llm_outputs["deepseek-r1-distill-llama-70b"]["precis"]
-            sheet[f"D{row}"] = bert_scorer(
+            sheet[f"E{row}"] = llm_outputs["deepseek-r1-distill-llama-70b"]["precis"]
+            sheet[f"F{row}"] = bert_scorer(
                 llm_outputs["deepseek-r1-distill-llama-70b"]["precis"],
                 forecast_texts["precis"],
             )
@@ -237,24 +218,20 @@ def main(comments):
                 llm_outputs["gemini-2.0-flash"]["precis"],
                 forecast_texts["precis"],
             )
-            """
 
-            sheet[f"B{row}"] = forecast_texts["long_form_text"]
-            """
+            sheet[f"L{row}"] = forecast_texts["long_form_text"]
             sheet[f"M{row}"] = llm_outputs["llama-3.1-8b-instant"]["long_form_text"]
             sheet[f"N{row}"] = bert_scorer(
                 llm_outputs["llama-3.1-8b-instant"]["long_form_text"],
                 forecast_texts["long_form_text"],
             )
-            """
-            sheet[f"C{row}"] = llm_outputs["deepseek-r1-distill-llama-70b"][
+            sheet[f"O{row}"] = llm_outputs["deepseek-r1-distill-llama-70b"][
                 "long_form_text"
             ]
-            sheet[f"D{row}"] = bert_scorer(
+            sheet[f"P{row}"] = bert_scorer(
                 llm_outputs["deepseek-r1-distill-llama-70b"]["long_form_text"],
                 forecast_texts["long_form_text"],
             )
-            """
             sheet[f"Q{row}"] = llm_outputs["mistral-saba-24b"]["long_form_text"]
             sheet[f"R{row}"] = bert_scorer(
                 llm_outputs["mistral-saba-24b"]["long_form_text"],
@@ -265,26 +242,25 @@ def main(comments):
                 llm_outputs["gemini-2.0-flash"]["long_form_text"],
                 forecast_texts["long_form_text"],
             )
-            """
             # Write the token counts and latency
-            # sheet[f"V{row}"] = llm_outputs["llama-3.1-8b-instant"]["input_tokens"]
-            sheet[f"F{row}"] = llm_outputs["deepseek-r1-distill-llama-70b"][
+            sheet[f"V{row}"] = llm_outputs["llama-3.1-8b-instant"]["input_tokens"]
+            sheet[f"W{row}"] = llm_outputs["deepseek-r1-distill-llama-70b"][
                 "input_tokens"
             ]
-            # sheet[f"X{row}"] = llm_outputs["mistral-saba-24b"]["input_tokens"]
-            # sheet[f"Y{row}"] = llm_outputs["gemini-2.0-flash"]["input_tokens"]
-            # sheet[f"Z{row}"] = llm_outputs["llama-3.1-8b-instant"]["output_tokens"]
-            sheet[f"G{row}"] = llm_outputs["deepseek-r1-distill-llama-70b"][
+            sheet[f"X{row}"] = llm_outputs["mistral-saba-24b"]["input_tokens"]
+            sheet[f"Y{row}"] = llm_outputs["gemini-2.0-flash"]["input_tokens"]
+            sheet[f"Z{row}"] = llm_outputs["llama-3.1-8b-instant"]["output_tokens"]
+            sheet[f"AA{row}"] = llm_outputs["deepseek-r1-distill-llama-70b"][
                 "output_tokens"
             ]
-            # sheet[f"AB{row}"] = llm_outputs["mistral-saba-24b"]["output_tokens"]
-            # sheet[f"AC{row}"] = llm_outputs["gemini-2.0-flash"]["output_tokens"]
-            # sheet[f"AD{row}"] = llm_outputs["llama-3.1-8b-instant"]["latency_seconds"]
-            sheet[f"H{row}"] = llm_outputs["deepseek-r1-distill-llama-70b"][
+            sheet[f"AB{row}"] = llm_outputs["mistral-saba-24b"]["output_tokens"]
+            sheet[f"AC{row}"] = llm_outputs["gemini-2.0-flash"]["output_tokens"]
+            sheet[f"AD{row}"] = llm_outputs["llama-3.1-8b-instant"]["latency_seconds"]
+            sheet[f"AE{row}"] = llm_outputs["deepseek-r1-distill-llama-70b"][
                 "latency_seconds"
             ]
-            # sheet[f"AF{row}"] = llm_outputs["mistral-saba-24b"]["latency_seconds"]
-            # sheet[f"AG{row}"] = llm_outputs["gemini-2.0-flash"]["latency_seconds"]
+            sheet[f"AF{row}"] = llm_outputs["mistral-saba-24b"]["latency_seconds"]
+            sheet[f"AG{row}"] = llm_outputs["gemini-2.0-flash"]["latency_seconds"]
 
             # Write the hourly data to a new sheet
             day_sheet = workbook.create_sheet(title=forecast_key)
@@ -315,10 +291,10 @@ def main(comments):
         sheet[f"A{row + 3}"] = comments
 
         # Save the workbook
-        output_filename = f"daily_overviews/{location_label}_{datetime.now().strftime('%Y_%m_%d_%H_%M')}DS_local.xlsx"
+        output_filename = f"daily_overviews/{location_label}_{datetime.now().strftime('%Y_%m_%d_%H_%M')}_RAG.xlsx"
         workbook.save(output_filename)
 
 
 if __name__ == "__main__":
-    comments = "deepseek generated prompts."
+    comments = "prompt including Jane's comments no BoM data yet"
     main(comments)
